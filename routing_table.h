@@ -39,7 +39,7 @@ network_addr_t str_to_netaddr(char *ipstr);
 
 void print_addr_range(in_addr_t lo);
 
-void create_message(routing_table_row *row, u_int8_t message[9]);
+void create_message(char address[], int prefix, int distance,  u_int8_t message[9]);
 
 void read_message(u_int8_t message[], routing_table_row *row);
 

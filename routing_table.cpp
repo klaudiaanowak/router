@@ -75,16 +75,10 @@ void print_addr_range(in_addr_t lo)
 
 } /* print_addr_range() */
 
-void create_message(routing_table_row *row, u_int8_t message[9])
+void create_message(char address[], int prefix, int distance,  u_int8_t message[9])
 {
-    struct in_addr in;
-    routing_table_row r = *row;
-    in.s_addr = htonl(r.netaddr.addr);
-    char *address = inet_ntoa(in);
-
     char *pch;
     pch = strtok(address, ".");
-
     for (int k = 0; k < 4; k++)
     {
         u_int8_t c = atoi(pch);
@@ -92,8 +86,8 @@ void create_message(routing_table_row *row, u_int8_t message[9])
         pch = strtok(NULL, ".");
     }
 
-    message[4] = r.netaddr.pfx;
-    int dist = r.distance;
+    message[4] = prefix;
+    int dist = distance;
     for (int i = 8; i > 4; i--)
     {
             message[i] = (dist >> (i * 8));
@@ -119,9 +113,10 @@ void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[],
     char addr[20];
 
     sprintf(addr, "%d.%d.%d.%d/%d", message[0], message[1], message[2], message[3], message[4]);
-
-    network_addr_t netaddr = str_to_netaddr(addr);
-    // int dist = (int)(message[5] | message[6] << 8 | message[7] << 16 | message[8] << 24);
+    std::cout<<addr<<std::endl;
+    char received_addr[20];
+    strcpy(received_addr, addr);
+    network_addr_t netaddr = str_to_netaddr(received_addr);
     int dist = (int)(message[5] << 24 | message[6] << 16 | message[7] << 8 | message[8]);
 
     int index = 0;
