@@ -174,6 +174,8 @@ int main(int argc, char **argv)
         {
             continue;
         }
+        
+        proceed_message(buffer, routing_table, ip_inet,numberOfInterfaces,max_rows);
 
         sleep(3);
     }

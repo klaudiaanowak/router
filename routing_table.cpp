@@ -119,13 +119,10 @@ void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[],
     char addr[20];
 
     sprintf(addr, "%d.%d.%d.%d/%d", message[0], message[1], message[2], message[3], message[4]);
-    printf("Address: %s\n", addr);
 
     network_addr_t netaddr = str_to_netaddr(addr);
     // int dist = (int)(message[5] | message[6] << 8 | message[7] << 16 | message[8] << 24);
     int dist = (int)(message[5] << 24 | message[6] << 16 | message[7] << 8 | message[8]);
-
-    printf("Dist: %d\n", dist);
 
     int index = 0;
     int in_table = 0;
@@ -135,7 +132,6 @@ void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[],
     {
 
         routing_table_row r = temp_routing_table[i];
-        printf("Check r %d\n", r.netaddr.pfx);
 
         if (r.netaddr.addr == netaddr.addr && r.netaddr.pfx == netaddr.pfx)
         {
