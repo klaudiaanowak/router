@@ -5,6 +5,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <iostream>
+#include <string>
 
 typedef struct network_addr
 {
@@ -15,7 +17,7 @@ typedef struct network_addr
 typedef struct routing_table_row
 {
     network_addr_t netaddr;
-    char *via_ip_addr;
+    std::string via_ip_addr;
     int directly;
     int rechable;
     int distance;
@@ -42,5 +44,5 @@ void create_message(routing_table_row *row, u_int8_t message[9]);
 void read_message(u_int8_t message[], routing_table_row *row);
 
 
-void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[], network_addr_t ip_inet[]);
+void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[], network_addr_t ip_inet[], int num_of_interfaces, int max_rows);
 

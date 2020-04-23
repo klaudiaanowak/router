@@ -1,15 +1,8 @@
-#include <netinet/ip.h>
-#include <arpa/inet.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
 #include "routing_table.h"
 
 const int max_rows = 20;
 const int round_time = 30;
-//Tworzenie tablicy routing
+//Create routing table
 routing_table_row routing_table[max_rows];
 
 in_addr ip_str_to_address(char *ipstr)
@@ -34,15 +27,16 @@ void print_routing_table()
         if (r.available == 1)
         {
             print_addr_range(r.netaddr.addr);
-            printf("/%d", r.netaddr.pfx);
+            std::cout<<"/"<<r.netaddr.pfx;
             if (r.rechable < 6)
-                printf(" distance %d ", r.distance);
+                std::cout<<" distance "<< r.distance;
             else
-                printf(" unreachable ");
+                std::cout<<" unreachable ";
             if (r.directly == 1)
-                printf("connected directly\n");
+                std::cout<<" connected directly "<<std::endl;
             else
-                printf(" via %s \n", r.via_ip_addr);
+
+                std:: cout<<" via "<<r.via_ip_addr<<std::endl;
         }
     }
 }
@@ -71,7 +65,7 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    // Pobranie danych wejściowych
+    // Get inputs
     int numberOfInterfaces;
     scanf("%d", &numberOfInterfaces);
 
@@ -97,7 +91,7 @@ int main(int argc, char **argv)
         routing_table[i].rechable = 0;
         routing_table[i].available = 1;
     }
-    int counter = 0;
+    int counter = round_time;
     for (;;)
     {
         counter++;
@@ -111,7 +105,6 @@ int main(int argc, char **argv)
                 struct in_addr in;
                 in.s_addr = htonl(broad);
                 char *add_to_send = inet_ntoa(in);
-                printf("Send to address: %s\n", add_to_send);
                 struct sockaddr_in sender;
                 bzero(&sender, sizeof(sender));
                 sender.sin_family = AF_INET;
@@ -123,7 +116,6 @@ int main(int argc, char **argv)
 
                     if (routing_table[j].available == 1)
                     {
-                        // print_addr_range(routing_table[j].netaddr.addr);
                         u_int8_t message[9] = {};
                         create_message(&routing_table[j], message);
                         ssize_t message_len = sizeof(message);
@@ -132,13 +124,13 @@ int main(int argc, char **argv)
 
                         setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (void *)&broadcastPermission,
                                    sizeof(broadcastPermission));
+                        //TODO: Add timeout 
                         if (sendto(sockfd, message, message_len, 0, (struct sockaddr *)&sender, sizeof(sender)) != message_len)
                         {
                             fprintf(stderr, "sendto error: %s\n", strerror(errno));
                             return EXIT_FAILURE;
                         }
-                        routing_table_row r;
-                        read_message(message, &r);
+
                     }
                 }
             }
@@ -182,11 +174,6 @@ int main(int argc, char **argv)
         {
             continue;
         }
-        printf("Received UDP packet from IP address: %s, port: %d\n", receiver_ip_str, ntohs(receiver.sin_port));
-
-        buffer[datagram_len] = 0;
-        printf("%ld-byte message: +%s+\n from %s", datagram_len, buffer, receiver_ip_str);
-        proceed_message(buffer, routing_table, ip_inet);
 
         sleep(3);
     }

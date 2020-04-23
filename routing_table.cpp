@@ -71,7 +71,7 @@ void print_addr_range(in_addr_t lo)
     struct in_addr in;
 
     in.s_addr = htonl(lo);
-    printf("%s", inet_ntoa(in));
+    std::cout<<  inet_ntoa(in);
 
 } /* print_addr_range() */
 
@@ -94,9 +94,9 @@ void create_message(routing_table_row *row, u_int8_t message[9])
 
     message[4] = r.netaddr.pfx;
     int dist = r.distance;
-    for (int i = 0; i < 4; i++)
+    for (int i = 8; i > 4; i--)
     {
-        message[i + 5] = (dist >> (i * 8));
+            message[i] = (dist >> (i * 8));
     }
 }
 
@@ -114,7 +114,7 @@ void read_message(u_int8_t message[], routing_table_row *row)
     (*row).rechable = 1;
 }
 
-void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[], network_addr_t ip_inet[])
+void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[], network_addr_t ip_inet[], int num_of_interfaces,int max_rows)
 {
     char addr[20];
 
@@ -122,17 +122,24 @@ void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[],
     printf("Address: %s\n", addr);
 
     network_addr_t netaddr = str_to_netaddr(addr);
-    int dist = (int)(message[5] | message[6] << 8 | message[7] << 16 | message[9] << 24);
+    // int dist = (int)(message[5] | message[6] << 8 | message[7] << 16 | message[8] << 24);
+    int dist = (int)(message[5] << 24 | message[6] << 16 | message[7] << 8 | message[8]);
 
-    int i = 0;
+    printf("Dist: %d\n", dist);
+
+    int index = 0;
     int in_table = 0;
-    routing_table_row r = temp_routing_table[i];
-    while (r.available == 1)
+    // routing_table_row r = temp_routing_table[i];
+    // while (r.available == 1)
+    for(int i = 0; i<max_rows; i++)
     {
+
         routing_table_row r = temp_routing_table[i];
+        printf("Check r %d\n", r.netaddr.pfx);
+
         if (r.netaddr.addr == netaddr.addr && r.netaddr.pfx == netaddr.pfx)
         {
-            // jest w tablicy - sprawdz dystans, czy jest w interfejsach
+            // in the table
             if (r.distance > dist + 1)
             {
                 r.distance = dist + 1;
@@ -144,34 +151,45 @@ void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[],
             in_table = 1;
             break;
         }
-        i++;
+
+        if(r.available!=0)
+            index++;    
     }
     if (in_table == 0)
     {
+        // printf("Not in table. ");
+
         int neigh = 0;
-        int j = 0;
-        while (ip_inet[j].addr)
+        // int j = 0;
+        // while (ip_inet[j].pfx)
+        for (int j = 0; j < num_of_interfaces; j++)
         {
             if (ip_inet[j].addr == netaddr.addr && ip_inet[j].pfx == netaddr.pfx)
             {
-                temp_routing_table[i].netaddr = netaddr;
-                temp_routing_table[i].distance = dist;
-                temp_routing_table[i].directly = 1;
-                temp_routing_table[i].rechable = 0;
-                temp_routing_table[i].available = 1;
+                // printf("Already on table ************** %s ************\n", addr);
+
+                temp_routing_table[index].netaddr = netaddr;
+                temp_routing_table[index].distance = dist;
+                temp_routing_table[index].directly = 1;
+                temp_routing_table[index].rechable = 0;
+                temp_routing_table[index].available = 1;
+
                 neigh = 1;
                 break;
             }
-            j++;
+            // j++;
         }
         if (neigh == 0)
         {
-            temp_routing_table[i].netaddr = netaddr;
-            temp_routing_table[i].distance = dist + 1;
-            temp_routing_table[i].directly = 0;
-            temp_routing_table[i].rechable = 0;
-            temp_routing_table[i].via_ip_addr = addr;
-            temp_routing_table[i].available = 1;
+            // printf("Not a neighbour ************** %s ************\n", addr);
+
+            temp_routing_table[index].netaddr = netaddr;
+            temp_routing_table[index].distance = dist + 1;
+            temp_routing_table[index].directly = 0;
+            temp_routing_table[index].rechable = 0;
+            temp_routing_table[index].via_ip_addr = addr;
+            temp_routing_table[index].available = 1;
         }
     }
+    
 }

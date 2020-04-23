@@ -1,11 +1,11 @@
-CXX=gcc 
+CXX=g++ 
 CFLAGS= -c
-CXXFLAGS= -std=c++11 -Wall -Wextra 
+CXXFLAGS= -std=c++11 -Wall -Wextra
 OUTPUT= router
 all: router
 
 router: routing_table.o router.o 
-	$(CXX) $(CXXFLAGS)  routing_table.o router.o  -o $(OUTPUT)
+	$(CXX) $(CXXFLAGS) routing_table.o router.o -o $(OUTPUT)
 # main.o: main.cpp
 # 	$(CXX) $(CFLAGS) main.cpp 
 router.o: router.cpp 
