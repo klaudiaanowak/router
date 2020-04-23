@@ -39,10 +39,10 @@ network_addr_t str_to_netaddr(char *ipstr);
 
 void print_addr_range(in_addr_t lo);
 
-void create_message(char address[], int prefix, int distance,  u_int8_t message[9]);
+void create_message(routing_table_row *row, u_int8_t message[9]);
 
 void read_message(u_int8_t message[], routing_table_row *row);
 
 
-void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[], network_addr_t ip_inet[], int num_of_interfaces, int max_rows);
+void proceed_message(char receiver_ip_str[], u_int8_t message[], routing_table_row temp_routing_table[], network_addr_t ip_inet[], int num_of_interfaces, int max_rows);
 

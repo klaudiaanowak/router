@@ -75,10 +75,16 @@ void print_addr_range(in_addr_t lo)
 
 } /* print_addr_range() */
 
-void create_message(char address[], int prefix, int distance,  u_int8_t message[9])
+void create_message(routing_table_row *row, u_int8_t message[9])
 {
+    struct in_addr in;
+    routing_table_row r = *row;
+    in.s_addr = htonl(r.netaddr.addr);
+    char *address = inet_ntoa(in);
+
     char *pch;
     pch = strtok(address, ".");
+
     for (int k = 0; k < 4; k++)
     {
         u_int8_t c = atoi(pch);
@@ -86,8 +92,8 @@ void create_message(char address[], int prefix, int distance,  u_int8_t message[
         pch = strtok(NULL, ".");
     }
 
-    message[4] = prefix;
-    int dist = distance;
+    message[4] = r.netaddr.pfx;
+    int dist = r.distance;
     for (int i = 8; i > 4; i--)
     {
             message[i] = (dist >> (i * 8));
@@ -108,17 +114,13 @@ void read_message(u_int8_t message[], routing_table_row *row)
     (*row).rechable = 1;
 }
 
-void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[], network_addr_t ip_inet[], int num_of_interfaces,int max_rows)
+void proceed_message(char receiver_ip_str[], u_int8_t message[], routing_table_row temp_routing_table[], network_addr_t ip_inet[], int num_of_interfaces,int max_rows)
 {
     char addr[20];
-
     sprintf(addr, "%d.%d.%d.%d/%d", message[0], message[1], message[2], message[3], message[4]);
-    std::cout<<addr<<std::endl;
-    char received_addr[20];
-    strcpy(received_addr, addr);
-    network_addr_t netaddr = str_to_netaddr(received_addr);
-    int dist = (int)(message[5] << 24 | message[6] << 16 | message[7] << 8 | message[8]);
 
+    network_addr_t netaddr = str_to_netaddr(addr);
+    int dist = (int)(message[5] << 24 | message[6] << 16 | message[7] << 8 | message[8]);
     int index = 0;
     int in_table = 0;
     // routing_table_row r = temp_routing_table[i];
@@ -136,7 +138,7 @@ void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[],
                 r.distance = dist + 1;
                 r.directly = 0;
                 r.rechable = 0;
-                r.via_ip_addr = addr;
+                r.via_ip_addr = receiver_ip_str;
                 r.available = 1;
             }
             in_table = 1;
@@ -178,7 +180,7 @@ void proceed_message(u_int8_t message[], routing_table_row temp_routing_table[],
             temp_routing_table[index].distance = dist + 1;
             temp_routing_table[index].directly = 0;
             temp_routing_table[index].rechable = 0;
-            temp_routing_table[index].via_ip_addr = addr;
+            temp_routing_table[index].via_ip_addr = receiver_ip_str;
             temp_routing_table[index].available = 1;
         }
     }

@@ -39,6 +39,7 @@ void print_routing_table()
                 std:: cout<<" via "<<r.via_ip_addr<<std::endl;
         }
     }
+    std::cout<<std::endl;
 }
 
 int main(int argc, char **argv)
@@ -117,10 +118,7 @@ int main(int argc, char **argv)
                     if (routing_table[j].available == 1)
                     {
                         u_int8_t message[9] = {};
-                        char sender_ip_str[20];
-                        inet_ntop(AF_INET, &(own_addresses[i]), sender_ip_str, sizeof(sender_ip_str));
-                        create_message(sender_ip_str, routing_table[j].netaddr.pfx, routing_table[j].distance,  message);
-
+                        create_message(&routing_table[j], message);
                         ssize_t message_len = sizeof(message);
 
                         int broadcastPermission = 1;
@@ -161,7 +159,6 @@ int main(int argc, char **argv)
         char receiver_ip_str[20];
         inet_ntop(AF_INET, &(receiver.sin_addr), receiver_ip_str, sizeof(receiver_ip_str));
         int igorne = 0;
-
         for (int i = 0; i < numberOfInterfaces; i++)
         {
             char own_ip_str[20];
@@ -178,7 +175,7 @@ int main(int argc, char **argv)
         //     continue;
         // }
 
-        proceed_message(buffer, routing_table, ip_inet,numberOfInterfaces,max_rows);
+        proceed_message(receiver_ip_str, buffer, routing_table, ip_inet,numberOfInterfaces,max_rows);
 
         sleep(3);
     }
