@@ -1,9 +1,13 @@
 #include "routing_table.h"
+#include "socket_funcs.h"
 
-const int max_rows = 20;
+// const int max_rows = 20;
 const int round_time = 30;
+
 //Create routing table
-routing_table_row routing_table[max_rows];
+routing_table_t routing_table;
+void send_routing_table(int broadcastsocket);
+void recive_and_update_routing_table(int socket);
 
 in_addr ip_str_to_address(char *ipstr)
 {
@@ -19,54 +23,75 @@ in_addr ip_str_to_address(char *ipstr)
     return in;
 }
 
-void print_routing_table()
+void update_reachability()
 {
-    for (int i = 0; i < max_rows; i++)
+    int i;
+    for (int i = 0; i < routing_table.rows_count; i++)
     {
-        routing_table_row r = routing_table[i];
-        if (r.available == 1)
+        if (routing_table.table_rows[i].distance == unreachable &&
+            routing_table.table_rows[i].reachable <= min_reachable) // sąsiednia
+            continue;
+        if (routing_table.table_rows[i].reachable > min_reachable &&
+            routing_table.table_rows[i].reachable <= 0) // nieosiagalna od kilku tur reachable <=0
         {
-            print_addr_range(r.netaddr.addr);
-            std::cout<<"/"<<r.netaddr.pfx;
-            if (r.rechable < 6)
-                std::cout<<" distance "<< r.distance;
-            else
-                std::cout<<" unreachable ";
-            if (r.directly == 1)
-                std::cout<<" connected directly "<<std::endl;
-            else
-
-                std:: cout<<" via "<<r.via_ip_addr<<std::endl;
+            routing_table.table_rows[i].distance = unreachable;
+            routing_table.table_rows[i].reachable--;
+            if (routing_table.table_rows[i].reachable <= min_reachable)
+            {
+                if (routing_table.table_rows[i].directly != 1)
+                {
+                    //usuń z tablicy
+                    for (int j = i; j < routing_table.rows_count; j++)
+                    {
+                        if (j < routing_table.rows_count - 1)
+                        {
+                            routing_table.table_rows[j] = routing_table.table_rows[j + 1];
+                        }
+                        else
+                        {
+                            routing_table.table_rows[j] = {0};
+                            routing_table.rows_count--;
+                        }
+                    }
+                }
+            }
         }
     }
-    std::cout<<std::endl;
+}
+
+void print_routing_table()
+{
+
+    for (int i = 0; i < routing_table.rows_count; i++)
+    {
+        table_row_t r = routing_table.table_rows[i];
+
+        print_addr_range(r.netaddr.addr);
+        std::cout << "/" << r.netaddr.pfx;
+        if (r.reachable > min_reachable)
+            std::cout << " distance " << r.distance;
+        else
+            std::cout << " unreachable ";
+        if (r.directly == 1)
+            std::cout << " connected directly " << std::endl;
+        else
+        {
+            // std:: cout<<" via "<<r.via_ip_addr<<std::endl;
+            std::cout << " via ";
+            print_addr_range(r.router_addr);
+        }
+    }
+    std::cout << std::endl;
 }
 
 int main(int argc, char **argv)
 {
 
-    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0)
-    {
-        fprintf(stderr, "socket error: %s\n", strerror(errno));
-        return EXIT_FAILURE;
-    }
-
-    struct sockaddr_in server_address;
-    bzero(&server_address, sizeof(server_address));
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(54321);
-    server_address.sin_addr.s_addr = htonl(INADDR_ANY);
-    char server_ip_str[20];
-    inet_ntop(AF_INET, &(server_address.sin_addr), server_ip_str, sizeof(server_ip_str));
-
-    if (bind(sockfd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
-    {
-        fprintf(stderr, "bind error: %s\n", strerror(errno));
-        return EXIT_FAILURE;
-    }
+    int broadcastsocket = create_broadcast_socket();
+    int sockfd = bind();
 
     // Get inputs
+    routing_table.rows_count = 0;
     int numberOfInterfaces;
     scanf("%d", &numberOfInterfaces);
 
@@ -76,65 +101,106 @@ int main(int argc, char **argv)
 
     for (int i = 0; i < numberOfInterfaces; i++)
     {
-        char input[INET_ADDRSTRLEN + 20];
-        scanf(" %[^\n]s", input);
 
-        char *pch;
-        pch = strtok(input, " ");
-        ip_inet[i] = str_to_netaddr(pch);
-        own_addresses[i] = ip_str_to_address(pch);
-        pch = strtok(NULL, " ");
-        pch = strtok(NULL, " ");
-        distances[i] = strtol(pch, (char **)NULL, 10);
-        routing_table[i].netaddr = ip_inet[i];
-        routing_table[i].distance = distances[i];
-        routing_table[i].directly = 1;
-        routing_table[i].rechable = 0;
-        routing_table[i].available = 1;
+        int dist;
+        char addr[INET_ADDRSTRLEN + 20];
+
+        scanf("%s %*s %d", addr, &dist);
+
+        char *subnet_mask_str = strchr(addr, '/') + 1;
+        char *router_addr = strtok(addr, "/");
+
+        in_addr_t ip_addr = a_to_hl(addr);
+        routing_table.table_rows[i].netaddr = to_netaddr(ip_addr, subnet_mask_str);
+        routing_table.table_rows[i].router_addr = ip_addr;
+        routing_table.table_rows[i].distance = dist;
+        routing_table.table_rows[i].directly = 1;
+        routing_table.table_rows[i].reachable = max_reachable;
+        routing_table.table_rows[i].available = 1;
+        routing_table.rows_count++;
     }
     int counter = round_time;
     for (;;)
     {
-        counter++;
-        if (counter > round_time)
+        // counter++;
+        // if (counter > round_time)
+        // {
+        update_reachability();
+        print_routing_table();
+        // counter = 0;
+        send_routing_table(broadcastsocket);
+        sleep(1);
+
+        recive_and_update_routing_table(sockfd);
+    }
+    close(sockfd);
+    close(broadcastsocket);
+
+    return EXIT_SUCCESS;
+}
+
+void send_routing_table(int broadcastsocket)
+{
+    for (int i = 0; i < routing_table.rows_count; i++)
+    {
+        if (routing_table.table_rows[i].directly == 1)
         {
-            print_routing_table();
-            counter = 0;
-            for (int i = 0; i < numberOfInterfaces; i++)
+            table_row_t row = routing_table.table_rows[i];
+            in_addr_t broad = broadcast(row.router_addr, row.netaddr.pfx);
+            struct in_addr in;
+            in.s_addr = htonl(broad);
+            char *add_to_send = inet_ntoa(in);
+            struct sockaddr_in sender;
+            bzero(&sender, sizeof(sender));
+            sender.sin_family = AF_INET;
+            sender.sin_port = htons(54321);
+            inet_pton(AF_INET, add_to_send, &sender.sin_addr);
+
+            for (int j = 0; j < max_rows; j++)
             {
-                in_addr_t broad = broadcast(ip_inet[i].addr, ip_inet[i].pfx);
-                struct in_addr in;
-                in.s_addr = htonl(broad);
-                char *add_to_send = inet_ntoa(in);
-                struct sockaddr_in sender;
-                bzero(&sender, sizeof(sender));
-                sender.sin_family = AF_INET;
-                sender.sin_port = htons(54321);
-                inet_pton(AF_INET, add_to_send, &sender.sin_addr);
 
-                for (int j = 0; j < max_rows; j++)
+                if (routing_table.table_rows[j].available == 1)
                 {
+                    u_int8_t message[9] = {};
+                    create_message(&routing_table.table_rows[j], message);
+                    ssize_t message_len = sizeof(message);
 
-                    if (routing_table[j].available == 1)
+                    if (sendto(broadcastsocket, message, message_len, 0, (struct sockaddr *)&sender, sizeof(sender)) != message_len)
                     {
-                        u_int8_t message[9] = {};
-                        create_message(&routing_table[j], message);
-                        ssize_t message_len = sizeof(message);
-
-                        int broadcastPermission = 1;
-
-                        setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (void *)&broadcastPermission,
-                                   sizeof(broadcastPermission));
-                        //TODO: Add timeout 
-                        if (sendto(sockfd, message, message_len, 0, (struct sockaddr *)&sender, sizeof(sender)) != message_len)
-                        {
-                            fprintf(stderr, "sendto error: %s\n", strerror(errno));
-                            return EXIT_FAILURE;
-                        }
-
+                        fprintf(stderr, "sendto error: %s\n", strerror(errno));
+                        exit(EXIT_FAILURE);
                     }
                 }
             }
+        }
+    }
+}
+
+void recive_and_update_routing_table(int socket)
+{
+
+    table_row_t new_row;
+    int is_socket_ready;
+
+    while (true)
+    {
+        fd_set descriptors;
+        FD_ZERO(&descriptors);
+        FD_SET(socket, &descriptors);
+
+        struct timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 10000;
+
+        int ready = select(socket + 1, &descriptors, NULL, NULL, &tv);
+        if (ready < 0)
+        {
+            fprintf(stderr, "select socket error: %s\n", strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        if (ready == 0)
+        {
+            break;
         }
 
         struct sockaddr_in receiver;
@@ -142,43 +208,15 @@ int main(int argc, char **argv)
 
         u_int8_t buffer[IP_MAXPACKET + 1];
 
-        struct timeval tv;
-        tv.tv_sec = 0;
-        tv.tv_usec = 500000;
-        if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0)
-        {
-            perror("Error");
-        }
-        ssize_t datagram_len = recvfrom(sockfd, buffer, IP_MAXPACKET, 0, (struct sockaddr *)&receiver, &receiver_len);
-
+        ssize_t datagram_len = recvfrom(socket, buffer, IP_MAXPACKET, 0, (struct sockaddr *)&receiver, &receiver_len);
         if (datagram_len < 0)
         {
-            continue;
+            fprintf(stderr, "Receive error: %s\n", strerror(errno));
+            exit(EXIT_FAILURE);
         }
 
         char receiver_ip_str[20];
         inet_ntop(AF_INET, &(receiver.sin_addr), receiver_ip_str, sizeof(receiver_ip_str));
-        int igorne = 0;
-        for (int i = 0; i < numberOfInterfaces; i++)
-        {
-            char own_ip_str[20];
-            inet_ntop(AF_INET, &(own_addresses[i]), own_ip_str, sizeof(own_ip_str));
-
-            if (!strcmp(own_ip_str, receiver_ip_str))
-            {
-                igorne = 1;
-                break;
-            }
-        }
-        // if (igorne == 1)
-        // {
-        //     continue;
-        // }
-
-        proceed_message(receiver_ip_str, buffer, routing_table, ip_inet,numberOfInterfaces,max_rows);
-
-        sleep(3);
+        proceed_message(receiver_ip_str, buffer, &routing_table);
     }
-    close(sockfd);
-    return EXIT_SUCCESS;
 }

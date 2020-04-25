@@ -1,5 +1,27 @@
 #include "routing_table.h"
 
+int set_reachable(int dist)
+{
+    if (dist == unreachable)
+        return 0;
+    else
+        return max_reachable;
+}
+
+int find_ip_network_index(network_addr_t network, routing_table_t *routing_table)
+{
+    for (int i = 0; i < (*routing_table).rows_count; i++)
+    {
+        table_row_t r = (*routing_table).table_rows[i];
+
+        if (r.netaddr.addr == network.addr && r.netaddr.pfx == network.pfx)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
 in_addr_t netmask(int prefix)
 {
 
@@ -24,6 +46,7 @@ in_addr_t network(in_addr_t addr, int prefix)
 
 } /* network() */
 
+//TOD0: Lepiej zmien nazwę
 in_addr_t a_to_hl(char *ipstr)
 {
 
@@ -64,21 +87,33 @@ network_addr_t str_to_netaddr(char *ipstr)
     return (netaddr);
 
 } /* str_to_netaddr() */
+network_addr_t to_netaddr(in_addr_t addr, char *mask)
+{
 
+    long int prefix = 32;
+    network_addr_t netaddr;
+
+    prefix = strtol(mask, (char **)NULL, 10);
+    netaddr.pfx = (int)prefix;
+    netaddr.addr = network(addr, prefix);
+
+    return (netaddr);
+
+} /* str_to_netaddr() */
 void print_addr_range(in_addr_t lo)
 {
 
     struct in_addr in;
 
     in.s_addr = htonl(lo);
-    std::cout<<  inet_ntoa(in);
+    std::cout << inet_ntoa(in);
 
 } /* print_addr_range() */
 
-void create_message(routing_table_row *row, u_int8_t message[9])
+void create_message(table_row_t *row, u_int8_t message[9])
 {
     struct in_addr in;
-    routing_table_row r = *row;
+    table_row_t r = *row;
     in.s_addr = htonl(r.netaddr.addr);
     char *address = inet_ntoa(in);
 
@@ -96,11 +131,11 @@ void create_message(routing_table_row *row, u_int8_t message[9])
     int dist = r.distance;
     for (int i = 8; i > 4; i--)
     {
-            message[i] = (dist >> (i * 8));
+        message[i] = (dist >> (i * 8));
     }
 }
 
-void read_message(u_int8_t message[], routing_table_row *row)
+void read_message(u_int8_t message[], table_row_t *row)
 {
     char addr[20] = {};
 
@@ -111,78 +146,59 @@ void read_message(u_int8_t message[], routing_table_row *row)
 
     (*row).distance = a;
     (*row).directly = 1;
-    (*row).rechable = 1;
+    (*row).reachable = 1;
 }
 
-void proceed_message(char receiver_ip_str[], u_int8_t message[], routing_table_row temp_routing_table[], network_addr_t ip_inet[], int num_of_interfaces,int max_rows)
+void proceed_message(char receiver_ip_str[], u_int8_t message[], routing_table_t *temp_routing_table)
 {
     char addr[20];
     sprintf(addr, "%d.%d.%d.%d/%d", message[0], message[1], message[2], message[3], message[4]);
 
     network_addr_t netaddr = str_to_netaddr(addr);
     int dist = (int)(message[5] << 24 | message[6] << 16 | message[7] << 8 | message[8]);
+    network_addr_t receiver_network = str_to_netaddr(receiver_ip_str);
+    in_addr_t receiver_ip = a_to_hl(receiver_ip_str);
+    int new_addr_index = find_ip_network_index(receiver_network, temp_routing_table);
+    table_row_t new_addr_row = (*temp_routing_table).table_rows[new_addr_index];
+
     int index = 0;
     int in_table = 0;
-    // routing_table_row r = temp_routing_table[i];
-    // while (r.available == 1)
-    for(int i = 0; i<max_rows; i++)
+    for (int i = 0; i < (*temp_routing_table).rows_count; i++)
     {
 
-        routing_table_row r = temp_routing_table[i];
+        table_row_t r = (*temp_routing_table).table_rows[i];
 
+        // Case: Network already in table
         if (r.netaddr.addr == netaddr.addr && r.netaddr.pfx == netaddr.pfx)
         {
-            // in the table
-            if (r.distance > dist + 1)
+            r.reachable = set_reachable(dist);
+
+            // Case neighbour
+            if (r.directly == 1)
+                break;
+            
+            // Update distance
+            if (r.distance > dist + new_addr_row.distance)
             {
-                r.distance = dist + 1;
+                r.distance = dist + new_addr_row.distance;
                 r.directly = 0;
-                r.rechable = 0;
-                r.via_ip_addr = receiver_ip_str;
+                r.router_addr = receiver_ip;
                 r.available = 1;
             }
             in_table = 1;
             break;
         }
-
-        if(r.available!=0)
-            index++;    
     }
+    // Case: Address not in table
     if (in_table == 0)
     {
-        // printf("Not in table. ");
-
-        int neigh = 0;
-        // int j = 0;
-        // while (ip_inet[j].pfx)
-        for (int j = 0; j < num_of_interfaces; j++)
-        {
-            if (ip_inet[j].addr == netaddr.addr && ip_inet[j].pfx == netaddr.pfx)
-            {
-                // printf("Already on table ************** %s ************\n", addr);
-
-                temp_routing_table[index].netaddr = netaddr;
-                temp_routing_table[index].distance = dist;
-                temp_routing_table[index].directly = 1;
-                temp_routing_table[index].rechable = 0;
-                temp_routing_table[index].available = 1;
-
-                neigh = 1;
-                break;
-            }
-            // j++;
-        }
-        if (neigh == 0)
-        {
-            // printf("Not a neighbour ************** %s ************\n", addr);
-
-            temp_routing_table[index].netaddr = netaddr;
-            temp_routing_table[index].distance = dist + 1;
-            temp_routing_table[index].directly = 0;
-            temp_routing_table[index].rechable = 0;
-            temp_routing_table[index].via_ip_addr = receiver_ip_str;
-            temp_routing_table[index].available = 1;
-        }
+        index = (*temp_routing_table).rows_count;
+        (*temp_routing_table).table_rows[index].netaddr = netaddr;
+        // popraw
+        (*temp_routing_table).table_rows[index].distance = dist + new_addr_row.distance;
+        (*temp_routing_table).table_rows[index].directly = 0;
+        (*temp_routing_table).table_rows[index].reachable = set_reachable(dist);
+        (*temp_routing_table).table_rows[index].router_addr = receiver_ip;
+        (*temp_routing_table).table_rows[index].available = 1;
     }
-    
 }
