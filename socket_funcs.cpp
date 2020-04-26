@@ -41,4 +41,5 @@ int bind()
         fprintf(stderr, "bind error: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
+    return sockfd;
 }

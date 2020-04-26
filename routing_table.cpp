@@ -10,17 +10,17 @@ int set_reachable(int dist)
 
 int set_distance(int dist_to_ip, int dist_to_network)
 {
-    if(dist_to_ip==UNREACHABLE || dist_to_network==UNREACHABLE)
+    if (dist_to_ip == UNREACHABLE || dist_to_network == UNREACHABLE)
         return UNREACHABLE;
     else
-        return dist_to_ip+dist_to_network;
+        return dist_to_ip + dist_to_network;
 }
 int find_ip_network_index(network_addr_t network, routing_table_t *routing_table)
 {
+
     for (int i = 0; i < (*routing_table).rows_count; i++)
     {
         table_row_t r = (*routing_table).table_rows[i];
-
         if (r.netaddr.addr == network.addr && r.netaddr.pfx == network.pfx)
         {
             return i;
@@ -28,7 +28,20 @@ int find_ip_network_index(network_addr_t network, routing_table_t *routing_table
     }
     return -1;
 }
+int find_ip_address_index(in_addr_t address, routing_table_t *routing_table)
+{
 
+    for (int i = 0; i < (*routing_table).rows_count; i++)
+    {
+        table_row_t r = (*routing_table).table_rows[i];
+
+        if (r.router_addr == address)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
 in_addr_t netmask(int prefix)
 {
 
@@ -94,15 +107,13 @@ network_addr_t str_to_netaddr(char *ipstr)
     return (netaddr);
 
 } /* str_to_netaddr() */
-network_addr_t to_netaddr(in_addr_t addr, char *mask)
+network_addr_t to_netaddr(in_addr_t addr, int mask)
 {
 
-    long int prefix = 32;
     network_addr_t netaddr;
 
-    prefix = strtol(mask, (char **)NULL, 10);
-    netaddr.pfx = (int)prefix;
-    netaddr.addr = network(addr, prefix);
+    netaddr.pfx = mask;
+    netaddr.addr = network(addr, mask);
 
     return (netaddr);
 
@@ -156,61 +167,63 @@ void read_message(u_int8_t message[], table_row_t *row)
     (*row).reachable = 1;
 }
 
-void proceed_message(char receiver_ip_str[], u_int8_t message[], routing_table_t *temp_routing_table)
+void proceed_message(char receiver_ip_str[], u_int8_t message[], routing_table_t *routing_table)
 {
     char addr[20];
     sprintf(addr, "%d.%d.%d.%d/%d", message[0], message[1], message[2], message[3], message[4]);
 
     network_addr_t netaddr = str_to_netaddr(addr);
     int dist = (int)(message[5] << 24 | message[6] << 16 | message[7] << 8 | message[8]);
-    network_addr_t receiver_network = str_to_netaddr(receiver_ip_str);
+
     in_addr_t receiver_ip = a_to_hl(receiver_ip_str);
-    int new_addr_index = find_ip_network_index(receiver_network, temp_routing_table);
-    if (new_addr_index < 0)
+
+    int received_network_index = find_ip_network_index(netaddr, routing_table); // index otrzymanej sieci
+    int sender_address_index = find_ip_address_index(receiver_ip, routing_table);
+
+    if (received_network_index < 0)
     {
-        printf("No matching ip address error");
-        exit(EXIT_FAILURE);
-    }
-    table_row_t new_addr_row = (*temp_routing_table).table_rows[new_addr_index];
-    int sum_distance = set_distance(new_addr_row.distance,dist);
-
-    int in_table = 0;
-    for (int i = 0; i < (*temp_routing_table).rows_count; i++)
-    {
-
-        table_row_t r = (*temp_routing_table).table_rows[i];
-
-        // Case: Network already in table
-        if (r.netaddr.addr == netaddr.addr && r.netaddr.pfx == netaddr.pfx)
+        //nie ma go w tablicy
+        if (sender_address_index < 0)
         {
-            r.reachable = set_reachable(dist);
+            // nie ma takiego adresu w adresach pośredniczących
+            printf("No matching ip address error");
+            exit(EXIT_FAILURE);
+        }
+        int index = (*routing_table).rows_count;
+        int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist);
 
-            // Case neighbour
-            if (r.directly == DIRECT)
-                break;
+        (*routing_table).table_rows[index].netaddr = netaddr;
+        (*routing_table).table_rows[index].distance = sum_distance;
+        (*routing_table).table_rows[index].directly = INDIRECT;
+        (*routing_table).table_rows[index].reachable = set_reachable(dist);
+        (*routing_table).table_rows[index].router_addr = receiver_ip;
+        (*routing_table).table_rows[index].available = 1;
+        (*routing_table).rows_count++;
+    }
+    else
+    {
+        //jest w tablicy
+        if ((*routing_table).table_rows[received_network_index].directly == DIRECT && find_ip_address_index(receiver_ip, routing_table) >= 0)
+        {
+            // received message from yourself
+            return;
+        }
+        (*routing_table).table_rows[received_network_index].reachable = set_reachable(dist);
+        // Case neighbour
+        if ((*routing_table).table_rows[received_network_index].directly == DIRECT)
+            return;
 
-            // Update distance
-            if (r.distance > sum_distance)
-            {
-                r.distance = sum_distance;
-                r.directly = INDIRECT;
-                r.router_addr = receiver_ip;
-                r.available = 1;
-            }
-            in_table = 1;
-            break;
+        // Update distance
+        int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist);
+
+        if ((*routing_table).table_rows[received_network_index].distance > sum_distance)
+        {
+
+            (*routing_table).table_rows[received_network_index].distance = sum_distance;
+            (*routing_table).table_rows[received_network_index].directly = INDIRECT;
+            (*routing_table).table_rows[received_network_index].router_addr = receiver_ip;
+            (*routing_table).table_rows[received_network_index].available = 1;
         }
     }
-    // Case: Address not in table
-    if (in_table == 0)
-    {
-        int index = (*temp_routing_table).rows_count;
-        (*temp_routing_table).table_rows[index].netaddr = netaddr;
-        (*temp_routing_table).table_rows[index].distance = sum_distance;
-        (*temp_routing_table).table_rows[index].directly = INDIRECT;
-        (*temp_routing_table).table_rows[index].reachable = set_reachable(dist);
-        (*temp_routing_table).table_rows[index].router_addr = receiver_ip;
-        (*temp_routing_table).table_rows[index].available = 1;
-        (*temp_routing_table).rows_count++;
-    }
+
 }

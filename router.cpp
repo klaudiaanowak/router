@@ -40,7 +40,10 @@ int main(int argc, char **argv)
         char *router_addr = strtok(addr, "/");
 
         in_addr_t ip_addr = a_to_hl(addr);
-        routing_table.table_rows[i].netaddr = to_netaddr(ip_addr, subnet_mask_str);
+        long int prefix = 32;
+
+        prefix = (int)strtol(subnet_mask_str, (char **)NULL, 10);
+        routing_table.table_rows[i].netaddr = to_netaddr(ip_addr, prefix);
         routing_table.table_rows[i].router_addr = ip_addr;
         routing_table.table_rows[i].distance = dist;
         routing_table.table_rows[i].directly = DIRECT;
@@ -51,12 +54,11 @@ int main(int argc, char **argv)
     int counter = round_time;
     for (;;)
     {
+        print_routing_table();
 
         send_routing_table(broadcastsocket);
         recive_and_update_routing_table(sockfd);
         update_reachability();
-
-        print_routing_table();
 
         sleep(round_time);
     }
@@ -71,8 +73,9 @@ void print_routing_table()
 
     if (routing_table.rows_count < 1)
     {
-        std::cout << " No valid connections " << std::endl;
+        std::cout << "No valid connections " << std::endl;
     }
+
     for (int i = 0; i < routing_table.rows_count; i++)
     {
         table_row_t r = routing_table.table_rows[i];
