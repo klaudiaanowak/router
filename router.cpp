@@ -1,88 +1,17 @@
 #include "routing_table.h"
 #include "socket_funcs.h"
 
-// const int max_rows = 20;
-const int round_time = 30;
+// const int MAX_ROWS = 20;
+const int round_time = 15;
 
 //Create routing table
 routing_table_t routing_table;
 void send_routing_table(int broadcastsocket);
 void recive_and_update_routing_table(int socket);
 
-in_addr ip_str_to_address(char *ipstr)
-{
+void update_reachability();
 
-    struct in_addr in;
-
-    if (!inet_aton(ipstr, &in))
-    {
-        fprintf(stderr, "Invalid address %s!\n", ipstr);
-        exit(1);
-    }
-
-    return in;
-}
-
-void update_reachability()
-{
-    int i;
-    for (int i = 0; i < routing_table.rows_count; i++)
-    {
-        if (routing_table.table_rows[i].distance == unreachable &&
-            routing_table.table_rows[i].reachable <= min_reachable) // sąsiednia
-            continue;
-        if (routing_table.table_rows[i].reachable > min_reachable &&
-            routing_table.table_rows[i].reachable <= 0) // nieosiagalna od kilku tur reachable <=0
-        {
-            routing_table.table_rows[i].distance = unreachable;
-            routing_table.table_rows[i].reachable--;
-            if (routing_table.table_rows[i].reachable <= min_reachable)
-            {
-                if (routing_table.table_rows[i].directly != 1)
-                {
-                    //usuń z tablicy
-                    for (int j = i; j < routing_table.rows_count; j++)
-                    {
-                        if (j < routing_table.rows_count - 1)
-                        {
-                            routing_table.table_rows[j] = routing_table.table_rows[j + 1];
-                        }
-                        else
-                        {
-                            routing_table.table_rows[j] = {0};
-                            routing_table.rows_count--;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-void print_routing_table()
-{
-
-    for (int i = 0; i < routing_table.rows_count; i++)
-    {
-        table_row_t r = routing_table.table_rows[i];
-
-        print_addr_range(r.netaddr.addr);
-        std::cout << "/" << r.netaddr.pfx;
-        if (r.reachable > min_reachable)
-            std::cout << " distance " << r.distance;
-        else
-            std::cout << " unreachable ";
-        if (r.directly == 1)
-            std::cout << " connected directly " << std::endl;
-        else
-        {
-            // std:: cout<<" via "<<r.via_ip_addr<<std::endl;
-            std::cout << " via ";
-            print_addr_range(r.router_addr);
-        }
-    }
-    std::cout << std::endl;
-}
+void print_routing_table();
 
 int main(int argc, char **argv)
 {
@@ -114,24 +43,22 @@ int main(int argc, char **argv)
         routing_table.table_rows[i].netaddr = to_netaddr(ip_addr, subnet_mask_str);
         routing_table.table_rows[i].router_addr = ip_addr;
         routing_table.table_rows[i].distance = dist;
-        routing_table.table_rows[i].directly = 1;
-        routing_table.table_rows[i].reachable = max_reachable;
+        routing_table.table_rows[i].directly = DIRECT;
+        routing_table.table_rows[i].reachable = MAX_REACHABLE;
         routing_table.table_rows[i].available = 1;
         routing_table.rows_count++;
     }
     int counter = round_time;
     for (;;)
     {
-        // counter++;
-        // if (counter > round_time)
-        // {
-        update_reachability();
-        print_routing_table();
-        // counter = 0;
-        send_routing_table(broadcastsocket);
-        sleep(1);
 
+        send_routing_table(broadcastsocket);
         recive_and_update_routing_table(sockfd);
+        update_reachability();
+
+        print_routing_table();
+
+        sleep(round_time);
     }
     close(sockfd);
     close(broadcastsocket);
@@ -139,11 +66,78 @@ int main(int argc, char **argv)
     return EXIT_SUCCESS;
 }
 
+void print_routing_table()
+{
+
+    if (routing_table.rows_count < 1)
+    {
+        std::cout << " No valid connections " << std::endl;
+    }
+    for (int i = 0; i < routing_table.rows_count; i++)
+    {
+        table_row_t r = routing_table.table_rows[i];
+
+        print_addr_range(r.netaddr.addr);
+        std::cout << "/" << r.netaddr.pfx;
+        if (r.reachable > 0 && r.distance < UNREACHABLE)
+            std::cout << " distance " << r.distance;
+        else
+            std::cout << " unreachable";
+        if (r.directly == DIRECT)
+            std::cout << " connected directly " << std::endl;
+        else
+        {
+            std::cout << " via ";
+            print_addr_range(r.router_addr);
+        }
+        std::cout << " reachable " << r.reachable << std::endl;
+    }
+    std::cout << std::endl;
+}
+
+void update_reachability()
+{
+    int i;
+    for (int i = 0; i < routing_table.rows_count; i++)
+    {
+        if (routing_table.table_rows[i].distance == UNREACHABLE &&
+            routing_table.table_rows[i].reachable <= MIN_REACHABLE) // sąsiednia
+        {
+            routing_table.table_rows[i].reachable = MIN_REACHABLE;
+            continue;
+        }
+        if (routing_table.table_rows[i].reachable >= MIN_REACHABLE &&
+            routing_table.table_rows[i].reachable <= 0) // nieosiagalna od kilku tur reachable <=0
+        {
+            routing_table.table_rows[i].distance = UNREACHABLE;
+            // routing_table.table_rows[i].reachable--;
+            if (routing_table.table_rows[i].reachable <= MIN_REACHABLE)
+            {
+                if (routing_table.table_rows[i].directly == INDIRECT)
+                {
+                    //usuń z tablicy
+                    for (int j = i; j < routing_table.rows_count; j++)
+                    {
+                        if (j < routing_table.rows_count - 1)
+                        {
+                            routing_table.table_rows[j] = routing_table.table_rows[j + 1];
+                        }
+                        else
+                        {
+                            routing_table.table_rows[j] = {0};
+                            routing_table.rows_count--;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 void send_routing_table(int broadcastsocket)
 {
     for (int i = 0; i < routing_table.rows_count; i++)
     {
-        if (routing_table.table_rows[i].directly == 1)
+        if (routing_table.table_rows[i].directly == DIRECT)
         {
             table_row_t row = routing_table.table_rows[i];
             in_addr_t broad = broadcast(row.router_addr, row.netaddr.pfx);
@@ -156,22 +150,20 @@ void send_routing_table(int broadcastsocket)
             sender.sin_port = htons(54321);
             inet_pton(AF_INET, add_to_send, &sender.sin_addr);
 
-            for (int j = 0; j < max_rows; j++)
+            for (int j = 0; j < routing_table.rows_count; j++)
             {
 
-                if (routing_table.table_rows[j].available == 1)
-                {
-                    u_int8_t message[9] = {};
-                    create_message(&routing_table.table_rows[j], message);
-                    ssize_t message_len = sizeof(message);
+                u_int8_t message[9] = {};
+                create_message(&routing_table.table_rows[j], message);
+                ssize_t message_len = sizeof(message);
 
-                    if (sendto(broadcastsocket, message, message_len, 0, (struct sockaddr *)&sender, sizeof(sender)) != message_len)
-                    {
-                        fprintf(stderr, "sendto error: %s\n", strerror(errno));
-                        exit(EXIT_FAILURE);
-                    }
+                if (sendto(broadcastsocket, message, message_len, 0, (struct sockaddr *)&sender, sizeof(sender)) != message_len)
+                {
+                    fprintf(stderr, "sendto error: %s\n", strerror(errno));
+                    exit(EXIT_FAILURE);
                 }
             }
+            routing_table.table_rows[i].reachable--;
         }
     }
 }

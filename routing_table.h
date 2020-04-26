@@ -8,10 +8,12 @@
 #include <iostream>
 #include <string>
 
-const int max_rows = 20;
-const int max_reachable = 3;
-const int min_reachable = -3;
-const int unreachable = 0x7fffffff;
+const int MAX_ROWS = 20;
+const int MAX_REACHABLE = 3;
+const int MIN_REACHABLE = -3;
+const int UNREACHABLE = 0x7fffffff;
+const int DIRECT = 1;
+const int INDIRECT = 0;
 typedef struct network_addr
 {
     in_addr_t addr;
@@ -31,7 +33,7 @@ typedef struct
 
 typedef struct
 {
-    table_row_t table_rows[max_rows];
+    table_row_t table_rows[MAX_ROWS];
     int rows_count;
 } routing_table_t;
 
