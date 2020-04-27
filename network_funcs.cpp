@@ -1,3 +1,6 @@
+// Klaudia Nowak
+// 297936
+
 #include "network_funcs.h"
 in_addr_t netmask(int prefix)
 {

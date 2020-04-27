@@ -1,7 +1,9 @@
+// Klaudia Nowak
+// 297936
+
 #include "routing_table.h"
 #include "socket_funcs.h"
 
-// const int MAX_ROWS = 20;
 const int round_time = 15;
 
 //Create routing table
@@ -103,23 +105,24 @@ void update_reachability()
     for (int i = 0; i < routing_table.rows_count; i++)
     {
         routing_table.table_rows[i].reachable--;
-
         if (routing_table.table_rows[i].distance == UNREACHABLE &&
-            routing_table.table_rows[i].reachable < MIN_REACHABLE) // sąsiednia
+            routing_table.table_rows[i].reachable < MIN_REACHABLE) 
         {
+                // neighbour
             routing_table.table_rows[i].reachable = MIN_REACHABLE;
             continue;
         }
         if (routing_table.table_rows[i].reachable >= MIN_REACHABLE &&
-            routing_table.table_rows[i].reachable <= 0) // nieosiagalna od kilku tur reachable <=0
+            routing_table.table_rows[i].reachable <= 0) 
         {
+            //no reachable
             routing_table.table_rows[i].distance = UNREACHABLE;
             if (routing_table.table_rows[i].directly == INDIRECT)
             {
                 if (routing_table.table_rows[i].reachable <= MIN_REACHABLE)
                 {
 
-                    //usuń z tablicy
+                    //remove from table
                     for (int j = i; j < routing_table.rows_count; j++)
                     {
                         if (j < routing_table.rows_count - 1)
@@ -168,8 +171,10 @@ void send_routing_table(int broadcastsocket)
                 {
                     routing_table.table_rows[j].reachable = 0;
                 }
+                else{
+                    routing_table.table_rows[j].reachable = MAX_REACHABLE;
+                }
             }
-            // routing_table.table_rows[i].reachable--;
         }
     }
 }

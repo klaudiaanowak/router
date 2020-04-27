@@ -1,3 +1,6 @@
+// Klaudia Nowak
+// 297936
+
 #include "routing_table.h"
 
 int set_reachable(unsigned int dist, int reachable)
@@ -100,8 +103,6 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
     network_addr_t netaddr = str_to_netaddr(received_network_addr);
     unsigned int dist = (unsigned int)(message[5] << 24 | message[6] << 16 | message[7] << 8 | message[8]);
 
-    // dist = ntohl(dist);
-    std::cout << dist << std::endl;
     in_addr_t sender_ip = address_from_str(sender_ip_str);
     // index of received network
     int sender_network_index = find_ip_network_index(netaddr, routing_table);
@@ -116,9 +117,9 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
         {
             // printf("No matching ip address error\n");
             // exit(EXIT_FAILURE);
-               return;
+            return;
         }
-     
+
         // Add new row to the table
         int index = (*routing_table).rows_count;
         int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist);
@@ -159,11 +160,7 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
 
         // Update distance of indirect networks
         int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist);
-        // if ((*routing_table).table_rows[sender_network_index].reachable > 0 && sum_distance == UNREACHABLE)
-        // {
-        //     sum_distance = (*routing_table).table_rows[sender_network_index].distance;
-        //     return;
-        // }
+
         if ((*routing_table).table_rows[sender_network_index].directly == INDIRECT && sum_distance == UNREACHABLE)
         {
             (*routing_table).table_rows[sender_network_index].distance = sum_distance;

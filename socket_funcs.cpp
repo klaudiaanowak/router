@@ -1,3 +1,6 @@
+// Klaudia Nowak
+// 297936
+
 #include "socket_funcs.h"
 
 int create_broadcast_socket()
