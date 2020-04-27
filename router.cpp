@@ -39,26 +39,27 @@ int main(int argc, char **argv)
         char *subnet_mask_str = strchr(addr, '/') + 1;
         char *router_addr = strtok(addr, "/");
 
-        in_addr_t ip_addr = a_to_hl(addr);
+        in_addr_t ip_addr = address_from_str(addr);
         long int prefix = 32;
 
         prefix = (int)strtol(subnet_mask_str, (char **)NULL, 10);
         routing_table.table_rows[i].netaddr = to_netaddr(ip_addr, prefix);
         routing_table.table_rows[i].router_addr = ip_addr;
+        routing_table.table_rows[i].distance = UNREACHABLE;
         routing_table.table_rows[i].distance = dist;
-        routing_table.table_rows[i].directly = DIRECT;
         routing_table.table_rows[i].reachable = MAX_REACHABLE;
         routing_table.table_rows[i].available = 1;
         routing_table.rows_count++;
+
     }
     int counter = round_time;
     for (;;)
     {
         print_routing_table();
+        update_reachability();
 
         send_routing_table(broadcastsocket);
         recive_and_update_routing_table(sockfd);
-        update_reachability();
 
         sleep(round_time);
     }
@@ -203,7 +204,7 @@ void recive_and_update_routing_table(int socket)
 
         u_int8_t buffer[IP_MAXPACKET + 1];
 
-        ssize_t datagram_len = recvfrom(socket, buffer, IP_MAXPACKET, 0, (struct sockaddr *)&receiver, &receiver_len);
+        ssize_t datagram_len = recvfrom(socket, buffer, IP_MAXPACKET, 100, (struct sockaddr *)&receiver, &receiver_len);
         if (datagram_len < 0)
         {
             fprintf(stderr, "Receive error: %s\n", strerror(errno));

@@ -11,7 +11,7 @@
 const int MAX_ROWS = 20;
 const int MAX_REACHABLE = 3;
 const int MIN_REACHABLE = -3;
-const int UNREACHABLE = 0x7fffffff;
+const unsigned int UNREACHABLE = 0xffffffff;
 const int DIRECT = 1;
 const int INDIRECT = 0;
 typedef struct network_addr
@@ -27,7 +27,7 @@ typedef struct
     in_addr_t router_addr;
     int directly;
     int reachable;
-    int distance;
+    unsigned int distance;
     int available;
 } table_row_t;
 
@@ -43,7 +43,7 @@ in_addr_t broadcast(in_addr_t addr, int prefix);
 
 in_addr_t network(in_addr_t addr, int prefix);
 
-in_addr_t a_to_hl(char *ipstr);
+in_addr_t address_from_str(char *ipstr);
 
 // in_addr a_to_in(char *ipstr);
 
