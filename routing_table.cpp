@@ -4,18 +4,21 @@ int set_reachable(unsigned int dist, int reachable)
 {
     if (dist == UNREACHABLE)
     {
-        if (reachable < 1)
+        if (reachable < 0)
             return reachable;
-        return 1;
+        return reachable;
     }
     else
         return MAX_REACHABLE;
 }
 
-int set_distance(int dist_to_ip, int dist_to_network)
+int set_distance(int dist_to_ip, int dist_to_network, int reachable)
 {
-    if (dist_to_ip == UNREACHABLE || dist_to_network == UNREACHABLE)
-        return UNREACHABLE;
+    if (reachable < 0)
+    {
+        if (dist_to_ip == UNREACHABLE || dist_to_network == UNREACHABLE)
+            return UNREACHABLE;
+    }
     else
         return dist_to_ip + dist_to_network;
 }
@@ -179,6 +182,7 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
     // index to sender's network
     int sender_address_index = match_ip_to_network(sender_ip, routing_table);
 
+    int sender_via_network_index = find_ip_address_index(sender_ip, routing_table);
     if (sender_network_index < 0)
     {
         //not in table
@@ -189,7 +193,7 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
         }
         // Add new row to the table
         int index = (*routing_table).rows_count;
-        int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist);
+        int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist, MAX_REACHABLE);
 
         (*routing_table).table_rows[index].netaddr = netaddr;
         (*routing_table).table_rows[index].distance = sum_distance;
@@ -202,7 +206,7 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
     else
     {
         // network is in table
-        if ((*routing_table).table_rows[sender_network_index].directly == DIRECT && (*routing_table).table_rows[sender_network_index].router_addr == sender_ip)
+        if ((*routing_table).table_rows[sender_via_network_index].directly == DIRECT && (*routing_table).table_rows[sender_network_index].router_addr == sender_ip)
         {
             // received message from yourself
             return;
@@ -225,7 +229,7 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
         }
 
         // Update distance of indirect networks
-        int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist);
+        int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist, (*routing_table).table_rows[sender_network_index].reachable);
         if ((*routing_table).table_rows[sender_network_index].distance > sum_distance)
         {
 

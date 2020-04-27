@@ -50,7 +50,6 @@ int main(int argc, char **argv)
         routing_table.table_rows[i].reachable = MAX_REACHABLE;
         routing_table.table_rows[i].available = 1;
         routing_table.rows_count++;
-
     }
     int counter = round_time;
     for (;;)
@@ -104,8 +103,10 @@ void update_reachability()
     int i;
     for (int i = 0; i < routing_table.rows_count; i++)
     {
+        routing_table.table_rows[i].reachable--;
+
         if (routing_table.table_rows[i].distance == UNREACHABLE &&
-            routing_table.table_rows[i].reachable <= MIN_REACHABLE) // sąsiednia
+            routing_table.table_rows[i].reachable < MIN_REACHABLE) // sąsiednia
         {
             routing_table.table_rows[i].reachable = MIN_REACHABLE;
             continue;
@@ -114,11 +115,11 @@ void update_reachability()
             routing_table.table_rows[i].reachable <= 0) // nieosiagalna od kilku tur reachable <=0
         {
             routing_table.table_rows[i].distance = UNREACHABLE;
-            // routing_table.table_rows[i].reachable--;
-            if (routing_table.table_rows[i].reachable <= MIN_REACHABLE)
+            if (routing_table.table_rows[i].directly == INDIRECT)
             {
-                if (routing_table.table_rows[i].directly == INDIRECT)
+                if (routing_table.table_rows[i].reachable <= MIN_REACHABLE)
                 {
+
                     //usuń z tablicy
                     for (int j = i; j < routing_table.rows_count; j++)
                     {
@@ -156,18 +157,20 @@ void send_routing_table(int broadcastsocket)
 
             for (int j = 0; j < routing_table.rows_count; j++)
             {
-
+                if (routing_table.table_rows[j].reachable <= MIN_REACHABLE)
+                {
+                    continue;
+                }
                 u_int8_t message[9] = {};
                 create_message(&routing_table.table_rows[j], message);
                 ssize_t message_len = sizeof(message);
 
-                if (sendto(broadcastsocket, message, message_len, 0, (struct sockaddr *)&sender, sizeof(sender)) != message_len)
+                if (sendto(broadcastsocket, message, message_len, 0, (struct sockaddr *)&sender, sizeof(sender)) < 0)
                 {
-                    fprintf(stderr, "sendto error: %s\n", strerror(errno));
-                    exit(EXIT_FAILURE);
+                    routing_table.table_rows[j].reachable = 0;
                 }
             }
-            routing_table.table_rows[i].reachable--;
+            // routing_table.table_rows[i].reachable--;
         }
     }
 }
