@@ -29,7 +29,6 @@ typedef struct
     int directly;
     int reachable;
     unsigned int distance;
-    int available;
 } table_row_t;
 
 typedef struct

@@ -48,7 +48,6 @@ int main(int argc, char **argv)
         routing_table.table_rows[i].distance = dist;
         routing_table.table_rows[i].directly = DIRECT;
         routing_table.table_rows[i].reachable = MAX_REACHABLE;
-        routing_table.table_rows[i].available = 1;
         routing_table.rows_count++;
     }
     int counter = round_time;

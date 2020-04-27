@@ -126,7 +126,6 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
         (*routing_table).table_rows[index].directly = INDIRECT;
         (*routing_table).table_rows[index].reachable = MAX_REACHABLE;
         (*routing_table).table_rows[index].router_addr = sender_ip;
-        (*routing_table).table_rows[index].available = 1;
         (*routing_table).rows_count++;
     }
     else
@@ -158,18 +157,22 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
 
         // Update distance of indirect networks
         int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist);
-        if ((*routing_table).table_rows[sender_network_index].reachable > 0 && sum_distance == UNREACHABLE)
+        // if ((*routing_table).table_rows[sender_network_index].reachable > 0 && sum_distance == UNREACHABLE)
+        // {
+        //     sum_distance = (*routing_table).table_rows[sender_network_index].distance;
+        //     return;
+        // }
+        if ((*routing_table).table_rows[sender_network_index].directly == INDIRECT && sum_distance == UNREACHABLE)
         {
-            sum_distance = (*routing_table).table_rows[sender_network_index].distance;
+            (*routing_table).table_rows[sender_network_index].distance = sum_distance;
+            return;
         }
-
         if ((*routing_table).table_rows[sender_network_index].distance > sum_distance)
         {
 
             (*routing_table).table_rows[sender_network_index].distance = sum_distance;
             (*routing_table).table_rows[sender_network_index].directly = INDIRECT;
             (*routing_table).table_rows[sender_network_index].router_addr = sender_ip;
-            (*routing_table).table_rows[sender_network_index].available = 1;
         }
     }
 }
