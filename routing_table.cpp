@@ -1,9 +1,13 @@
 #include "routing_table.h"
 
-int set_reachable(int dist)
+int set_reachable(unsigned int dist, int reachable)
 {
-    if (dist == UNREACHABLE && dist <0)
-        return 0;
+    if (dist == UNREACHABLE)
+    {
+        if (reachable < 1)
+            return reachable;
+        return 1;
+    }
     else
         return MAX_REACHABLE;
 }
@@ -63,22 +67,19 @@ in_addr_t netmask(int prefix)
         return (~((in_addr_t)-1));
     else
         return (~((1 << (32 - prefix)) - 1));
-
-} 
+}
 
 in_addr_t broadcast(in_addr_t addr, int prefix)
 {
 
     return (addr | ~netmask(prefix));
-
-} 
+}
 
 in_addr_t network(in_addr_t addr, int prefix)
 {
 
     return (addr & netmask(prefix));
-
-} 
+}
 
 in_addr_t address_from_str(char *ipstr)
 {
@@ -92,8 +93,7 @@ in_addr_t address_from_str(char *ipstr)
     }
 
     return (ntohl(in.s_addr));
-
-} 
+}
 
 network_addr_t str_to_netaddr(char *ipstr)
 {
@@ -118,8 +118,7 @@ network_addr_t str_to_netaddr(char *ipstr)
     netaddr.addr = network(address_from_str(ipstr), prefix);
 
     return (netaddr);
-
-} 
+}
 network_addr_t to_netaddr(in_addr_t addr, int mask)
 {
 
@@ -129,8 +128,7 @@ network_addr_t to_netaddr(in_addr_t addr, int mask)
     netaddr.addr = network(addr, mask);
 
     return (netaddr);
-
-} 
+}
 void print_addr_range(in_addr_t lo)
 {
 
@@ -138,8 +136,7 @@ void print_addr_range(in_addr_t lo)
 
     in.s_addr = htonl(lo);
     std::cout << inet_ntoa(in);
-
-} 
+}
 
 void create_message(table_row_t *row, u_int8_t message[9])
 {
@@ -159,7 +156,7 @@ void create_message(table_row_t *row, u_int8_t message[9])
     }
 
     message[4] = r.netaddr.pfx;
-    unsigned int dist = htonl(r.distance);
+    unsigned int dist = r.distance;
     for (int i = 8; i > 4; i--)
     {
         message[i] = (dist >> (i * 8));
@@ -174,13 +171,13 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
     network_addr_t netaddr = str_to_netaddr(received_network_addr);
     unsigned int dist = (unsigned int)(message[5] << 24 | message[6] << 16 | message[7] << 8 | message[8]);
 
-    dist = ntohl(dist);
+    // dist = ntohl(dist);
+    std::cout << dist << std::endl;
     in_addr_t sender_ip = address_from_str(sender_ip_str);
-// index of received network
-    int sender_network_index = find_ip_network_index(netaddr, routing_table); 
+    // index of received network
+    int sender_network_index = find_ip_network_index(netaddr, routing_table);
     // index to sender's network
-      int sender_address_index = match_ip_to_network(sender_ip, routing_table);
-
+    int sender_address_index = match_ip_to_network(sender_ip, routing_table);
 
     if (sender_network_index < 0)
     {
@@ -197,7 +194,7 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
         (*routing_table).table_rows[index].netaddr = netaddr;
         (*routing_table).table_rows[index].distance = sum_distance;
         (*routing_table).table_rows[index].directly = INDIRECT;
-        (*routing_table).table_rows[index].reachable = set_reachable(dist);
+        (*routing_table).table_rows[index].reachable = MAX_REACHABLE;
         (*routing_table).table_rows[index].router_addr = sender_ip;
         (*routing_table).table_rows[index].available = 1;
         (*routing_table).rows_count++;
@@ -211,16 +208,14 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
             return;
         }
 
-
-        // Neighbour sends info of my neighbours 
+        // Neighbour sends info of my neighbours
         if ((*routing_table).table_rows[sender_network_index].directly == DIRECT && sender_network_index != sender_address_index)
         {
             return;
         }
 
         // Check if network is reachable
-        (*routing_table).table_rows[sender_network_index].reachable = set_reachable(dist);
-
+        (*routing_table).table_rows[sender_network_index].reachable = set_reachable(dist, (*routing_table).table_rows[sender_network_index].reachable);
 
         // Neighbour sends about himself - info of direct networks from source
         if ((*routing_table).table_rows[sender_network_index].directly == DIRECT && sender_network_index == sender_address_index)
@@ -228,7 +223,7 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
             (*routing_table).table_rows[sender_network_index].distance = dist;
             return;
         }
- 
+
         // Update distance of indirect networks
         int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist);
         if ((*routing_table).table_rows[sender_network_index].distance > sum_distance)

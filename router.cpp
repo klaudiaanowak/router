@@ -45,8 +45,8 @@ int main(int argc, char **argv)
         prefix = (int)strtol(subnet_mask_str, (char **)NULL, 10);
         routing_table.table_rows[i].netaddr = to_netaddr(ip_addr, prefix);
         routing_table.table_rows[i].router_addr = ip_addr;
-        routing_table.table_rows[i].distance = UNREACHABLE;
         routing_table.table_rows[i].distance = dist;
+        routing_table.table_rows[i].directly = DIRECT;
         routing_table.table_rows[i].reachable = MAX_REACHABLE;
         routing_table.table_rows[i].available = 1;
         routing_table.rows_count++;
