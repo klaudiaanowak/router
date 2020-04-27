@@ -111,13 +111,14 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
     int sender_via_network_index = find_ip_address_index(sender_ip, routing_table);
     if (sender_network_index < 0)
     {
-        //not in table
-        // if (sender_address_index < 0)
-        // {
-        //     printf("No matching ip address error\n");
-        //     exit(EXIT_FAILURE);
-        // }
-        return;
+        // not in table
+        if (sender_address_index < 0)
+        {
+            // printf("No matching ip address error\n");
+            // exit(EXIT_FAILURE);
+               return;
+        }
+     
         // Add new row to the table
         int index = (*routing_table).rows_count;
         int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist);
