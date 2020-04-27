@@ -12,13 +12,12 @@ int set_reachable(unsigned int dist, int reachable)
         return MAX_REACHABLE;
 }
 
-int set_distance(int dist_to_ip, int dist_to_network, int reachable)
+int set_distance(int dist_to_ip, int dist_to_network)
 {
-    if (reachable < 0)
-    {
-        if (dist_to_ip == UNREACHABLE || dist_to_network == UNREACHABLE)
-            return UNREACHABLE;
-    }
+
+    if (dist_to_ip == UNREACHABLE || dist_to_network == UNREACHABLE)
+        return UNREACHABLE;
+
     else
         return dist_to_ip + dist_to_network;
 }
@@ -193,7 +192,7 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
         }
         // Add new row to the table
         int index = (*routing_table).rows_count;
-        int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist, MAX_REACHABLE);
+        int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist);
 
         (*routing_table).table_rows[index].netaddr = netaddr;
         (*routing_table).table_rows[index].distance = sum_distance;
@@ -224,12 +223,19 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
         // Neighbour sends about himself - info of direct networks from source
         if ((*routing_table).table_rows[sender_network_index].directly == DIRECT && sender_network_index == sender_address_index)
         {
+            if ((*routing_table).table_rows[sender_network_index].reachable > 0 && dist == UNREACHABLE)
+                return;
             (*routing_table).table_rows[sender_network_index].distance = dist;
             return;
         }
 
         // Update distance of indirect networks
-        int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist, (*routing_table).table_rows[sender_network_index].reachable);
+        int sum_distance = set_distance((*routing_table).table_rows[sender_address_index].distance, dist);
+        if ((*routing_table).table_rows[sender_network_index].reachable > 0 && sum_distance == UNREACHABLE)
+        {
+            sum_distance = (*routing_table).table_rows[sender_network_index].distance;
+        }
+
         if ((*routing_table).table_rows[sender_network_index].distance > sum_distance)
         {
 
