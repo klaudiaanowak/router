@@ -4,8 +4,7 @@ int set_reachable(unsigned int dist, int reachable)
 {
     if (dist == UNREACHABLE)
     {
-        if (reachable < 0)
-            return reachable;
+
         return reachable;
     }
     else
@@ -19,7 +18,12 @@ int set_distance(int dist_to_ip, int dist_to_network)
         return UNREACHABLE;
 
     else
-        return dist_to_ip + dist_to_network;
+    {
+        if (dist_to_ip + dist_to_network > INFINITE_DISTANCE)
+            return UNREACHABLE;
+        else
+            return dist_to_ip + dist_to_network;
+    }
 }
 int match_ip_to_network(in_addr_t address, routing_table_t *routing_table)
 {
@@ -61,83 +65,6 @@ int find_ip_address_index(in_addr_t address, routing_table_t *routing_table)
         }
     }
     return -1;
-}
-in_addr_t netmask(int prefix)
-{
-
-    if (prefix == 0)
-        return (~((in_addr_t)-1));
-    else
-        return (~((1 << (32 - prefix)) - 1));
-}
-
-in_addr_t broadcast(in_addr_t addr, int prefix)
-{
-
-    return (addr | ~netmask(prefix));
-}
-
-in_addr_t network(in_addr_t addr, int prefix)
-{
-
-    return (addr & netmask(prefix));
-}
-
-in_addr_t address_from_str(char *ipstr)
-{
-
-    struct in_addr in;
-
-    if (!inet_aton(ipstr, &in))
-    {
-        fprintf(stderr, "Invalid address %s!\n", ipstr);
-        exit(1);
-    }
-
-    return (ntohl(in.s_addr));
-}
-
-network_addr_t str_to_netaddr(char *ipstr)
-{
-
-    long int prefix = 32;
-    char *prefixstr;
-    network_addr_t netaddr;
-
-    if ((prefixstr = strchr(ipstr, '/')))
-    {
-        *prefixstr = '\0';
-        prefixstr++;
-        prefix = strtol(prefixstr, (char **)NULL, 10);
-        if ((*prefixstr == '\0') || (prefix < 0) || (prefix > 32))
-        {
-            fprintf(stderr, "Invalid prefix /%s...!\n", prefixstr);
-            exit(1);
-        }
-    }
-
-    netaddr.pfx = (int)prefix;
-    netaddr.addr = network(address_from_str(ipstr), prefix);
-
-    return (netaddr);
-}
-network_addr_t to_netaddr(in_addr_t addr, int mask)
-{
-
-    network_addr_t netaddr;
-
-    netaddr.pfx = mask;
-    netaddr.addr = network(addr, mask);
-
-    return (netaddr);
-}
-void print_addr_range(in_addr_t lo)
-{
-
-    struct in_addr in;
-
-    in.s_addr = htonl(lo);
-    std::cout << inet_ntoa(in);
 }
 
 void create_message(table_row_t *row, u_int8_t message[9])
@@ -205,7 +132,7 @@ void proceed_message(char sender_ip_str[], u_int8_t message[], routing_table_t *
     else
     {
         // network is in table
-        if ((*routing_table).table_rows[sender_via_network_index].directly == DIRECT && (*routing_table).table_rows[sender_network_index].router_addr == sender_ip)
+        if ((*routing_table).table_rows[sender_via_network_index].directly == DIRECT)
         {
             // received message from yourself
             return;
