@@ -93,6 +93,8 @@ void print_routing_table()
         {
             std::cout << " via ";
             print_addr_range(r.router_addr);
+            std::cout << std::endl;
+
         }
     }
     std::cout << std::endl;
