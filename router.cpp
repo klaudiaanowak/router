@@ -94,7 +94,6 @@ void print_routing_table()
             std::cout << " via ";
             print_addr_range(r.router_addr);
         }
-        std::cout << " reachable " << r.reachable << std::endl;
     }
     std::cout << std::endl;
 }
@@ -170,9 +169,6 @@ void send_routing_table(int broadcastsocket)
                 if (sendto(broadcastsocket, message, message_len, 0, (struct sockaddr *)&sender, sizeof(sender)) < 0)
                 {
                     routing_table.table_rows[j].reachable = 0;
-                }
-                else{
-                    routing_table.table_rows[j].reachable = MAX_REACHABLE;
                 }
             }
         }
